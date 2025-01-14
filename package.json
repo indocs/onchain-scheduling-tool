@@ -1,0 +1,24 @@
+{
+  "name": "onchain-scheduling-tool",
+  "version": "0.1.0",
+  "description": "Deterministic on-chain scheduling with verifiable execution for governance and deployment workflows.",
+  "private": true,
+  "scripts": {
+    "format": "prettier --write '**/*.{ts,sol,json,md}'",
+    "build": "hardhat compile",
+    "test": "hardhat test --network hardhat",
+    "deploy": "ts-node ./scripts/deploy.ts --network localhost"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "chai": "^4.3.6",
+    "dotenv": "^16.0.3",
+    "ethers": "^5.7.0",
+    "hardhat": "^2.15.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.5.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.9.0"
+  }
+}
