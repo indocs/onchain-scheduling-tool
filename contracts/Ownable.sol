@@ -1,18 +1,17 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.0;
 
+// Minimal Ownable with safety check improvements for security hardening
 contract Ownable {
     address private _owner;
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     constructor() {
-        _owner = msg.sender;
-        emit OwnershipTransferred(address(0), _owner);
+        _transferOwnership(msg.sender);
     }
 
     modifier onlyOwner() {
-        require(msg.sender == _owner, 'Ownable: caller is not the owner');
+        require(owner() == msg.sender, "Ownable: caller is not the owner");
         _;
     }
 
@@ -20,9 +19,18 @@ contract Ownable {
         return _owner;
     }
 
-    function transferOwnership(address newOwner) public onlyOwner {
-        require(newOwner != address(0), 'Ownable: new owner is the zero address');
-        emit OwnershipTransferred(_owner, newOwner);
+    function _transferOwnership(address newOwner) internal {
+        address oldOwner = _owner;
         _owner = newOwner;
+        emit OwnershipTransferred(oldOwner, newOwner);
+    }
+
+    function transferOwnership(address newOwner) public onlyOwner {
+        require(newOwner != address(0), "Ownable: new owner is the zero address");
+        _transferOwnership(newOwner);
+    }
+
+    function renounceOwnership() public onlyOwner {
+        _transferOwnership(address(0));
     }
 }
