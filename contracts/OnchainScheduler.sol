@@ -2,42 +2,51 @@
 pragma solidity ^0.8.0;
 
 import "./Ownable.sol";
+import "./Pausable.sol";
 
-// A lightweight on-chain scheduler. This incremental change adds a simple pause mechanism
-// controlled by the contract owner. The pause state is exposed via isPaused() and can be
-// toggled with pause() and unpause().
-
-contract OnchainScheduler is Ownable {
-    // NOTE: Existing storage layout is preserved for compatibility. This introduces a
-    // non-intrusive pause flag used by new administrative functions.
-    bool private _paused;
-
-    // Events for pause state changes
-    event Paused(address account);
-    event Unpaused(address account);
-
-    constructor() {
-        // _paused is false by default; no changes needed here beyond explicit declaration.
+// Onchain scheduling tool (simplified for incremental security tightening)
+contract OnchainScheduler is Ownable, Pausable {
+    struct Task {
+        address target;
+        uint256 timestamp;
+        bool executed;
     }
 
-    // Administrative: pause the contract
-    function pause() external onlyOwner {
-        require(!_paused, "OnchainScheduler: already paused");
-        _paused = true;
-        emit Paused(msg.sender);
+    mapping(uint256 => Task) public tasks;
+    uint256 public nextTaskId;
+
+    event TaskScheduled(uint256 indexed taskId, address indexed target, uint256 timestamp);
+    event TaskExecuted(uint256 indexed taskId);
+
+    // Basic function to schedule a task; public but guarded by pause state
+    function schedule(address target, uint256 timestamp) external whenNotPaused {
+        require(target != address(0), "Invalid target");
+        require(timestamp > block.timestamp, "Timestamp in the past");
+
+        uint256 id = nextTaskId++;
+        tasks[id] = Task({target: target, timestamp: timestamp, executed: false});
+        emit TaskScheduled(id, target, timestamp);
     }
 
-    // Administrative: unpause the contract
-    function unpause() external onlyOwner {
-        require(_paused, "OnchainScheduler: not paused");
-        _paused = false;
-        emit Unpaused(msg.sender);
+    // Execute a scheduled task if time reached
+    function execute(uint256 taskId) external whenNotPaused {
+        Task storage t = tasks[taskId];
+        require(!t.executed, "Already executed");
+        require(block.timestamp >= t.timestamp, "Too early");
+        t.executed = true;
+        (bool success, ) = t.target.call("");
+        require(success, "Execution failed");
+        emit TaskExecuted(taskId);
     }
 
-    // Public read accessor for the pause state
-    function isPaused() external view returns (bool) {
-        return _paused;
+    // Security enhancement: emergency pause / unpause controls are kept in Pausable
+    // but we add an explicit emergencyPause available only to the owner for rapid defense
+    function emergencyPause() external onlyOwner {
+        _pause();
     }
 
-    // ... existing scheduler logic remains unchanged ...
+    // Emergency unpause to restore operations after threat remediation
+    function emergencyUnpause() external onlyOwner {
+        _unpause();
+    }
 }
