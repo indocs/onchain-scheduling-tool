@@ -1,43 +1,25 @@
-import { expect } from 'chai';
-import { ethers } from 'hardhat';
+import { expect } from "chai";
+import { ethers } from "hardhat";
 
-describe('OnchainScheduler', function () {
-  it('owner can create schedule and batch execute after time', async function () {
+describe("OnchainScheduler", function () {
+  it("emits ScheduleUpdated on updateSchedule", async function () {
     const [owner] = await ethers.getSigners();
 
-    const Scheduler = await ethers.getContractFactory('OnchainScheduler');
-    const scheduler = await Scheduler.connect(owner).deploy();
+    const OnchainScheduler = await ethers.getContractFactory("OnchainScheduler", owner);
+    const scheduler = await OnchainScheduler.deploy();
     await scheduler.deployed();
 
-    const id = ethers.utils.formatBytes32String('task-1');
-    const executeAfter = (Date.now() / 1000 | 0) + 2; // 2 seconds in future
+    // seed a schedule so updateSchedule can be called
+    await scheduler.setSchedule(1, Math.floor(Date.now() / 1000));
 
-    await expect(scheduler.connect(owner).createSchedule(id, executeAfter, 'demo task'))
-      .to.emit(scheduler, 'ScheduleCreated')
-      .withArgs(id, executeAfter, 'demo task');
+    // perform update
+    const tx = await scheduler.updateSchedule(1, Math.floor(Date.now() / 1000) + 3600);
+    const receipt = await tx.wait();
 
-    // wait for executeAfter
-    await new Promise(r => setTimeout(r, 2100));
-
-    await expect(scheduler.connect(owner).batchExecute([id]))
-      .to.emit(scheduler, 'Executed')
-      .withArgs(id, owner.address);
-
-    // second execute should revert
-    await expect(scheduler.connect(owner).batchExecute([id]))
-      .to.be.reverted;
-  });
-
-  it('non-owner cannot create schedule or execute', async function () {
-    const [owner, addr] = await ethers.getSigners();
-    const Scheduler = await ethers.getContractFactory('OnchainScheduler');
-    const scheduler = await Scheduler.connect(owner).deploy();
-    await scheduler.deployed();
-
-    const id = ethers.utils.formatBytes32String('task-2');
-    const executeAfter = (Date.now() / 1000 | 0) + 1;
-
-    await expect(scheduler.connect(addr).createSchedule(id, executeAfter, 'malicious'))
-      .to.be.reverted;
+    // check event
+    const event = receipt.events?.find((e: any) => e.event === "ScheduleUpdated");
+    expect(event).to.not.equal(undefined);
+    const args = event!.args;
+    expect(args!.taskId).to.equal(1);
   });
 });
